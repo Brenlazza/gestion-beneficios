@@ -1,30 +1,9 @@
 <?php
 class Rendicion {
-    private $conexion;
-    public function __construct($conexion) { $this->conexion = $conexion; }
-
-    public function listar($usuarioId = 0) {
-        $sql = "SELECT r.*,u.nombre vendedor,c.nombre campania FROM rendiciones r
-                INNER JOIN vendedores_campanias vc ON vc.id=r.vendedor_campania_id
-                INNER JOIN usuarios u ON u.id=vc.vendedor_id
-                INNER JOIN campanias c ON c.id=vc.campania_id";
-        if ($usuarioId > 0) {
-            $stmt = $this->conexion->prepare($sql . ' WHERE u.id=? ORDER BY r.id DESC');
-            $stmt->bind_param('i', $usuarioId); $stmt->execute();
-            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        }
-        return $this->conexion->query($sql . ' ORDER BY r.id DESC')->fetch_all(MYSQLI_ASSOC);
-    }
-
-    public function crear($asignacion, $fecha, $monto, $observacion) {
-        $stmt = $this->conexion->prepare('INSERT INTO rendiciones(vendedor_campania_id,fecha_rendicion,monto_declarado,observacion) VALUES(?,?,?,?)');
-        $stmt->bind_param('isds', $asignacion, $fecha, $monto, $observacion);
-        return $stmt->execute();
-    }
-
-    public function cambiarEstado($id, $estado) {
-        $stmt = $this->conexion->prepare('UPDATE rendiciones SET estado=? WHERE id=?');
-        $stmt->bind_param('si', $estado, $id);
-        return $stmt->execute();
-    }
+ private $db;
+ function __construct($db){$this->db=$db;}
+ function listar($user,$admin){$sql="SELECT r.*,u.nombre vendedor,c.nombre campania,COALESCE((SELECT GROUP_CONCAT(p.id ORDER BY p.id) FROM rendicion_pagos rp JOIN pagos p ON p.id=rp.pago_id WHERE rp.rendicion_id=r.id),'') pagos_ids FROM rendiciones r JOIN vendedores_campanias vc ON vc.id=r.vendedor_campania_id JOIN usuarios u ON u.id=vc.vendedor_id JOIN campanias c ON c.id=vc.campania_id WHERE ".($admin>0?'c.creado_por=?':'u.id=?').' ORDER BY r.id DESC';$id=$admin>0?$admin:$user;$s=$this->db->prepare($sql);$s->bind_param('i',$id);$s->execute();return $s->get_result()->fetch_all(MYSQLI_ASSOC);}
+ function disponibles($user,$admin){$sql="SELECT p.id,p.monto,p.fecha_pago,v.cliente,u.nombre vendedor,c.nombre campania FROM pagos p JOIN ventas v ON v.id=p.venta_id JOIN vendedores_campanias vc ON vc.id=p.vendedor_campania_id JOIN usuarios u ON u.id=vc.vendedor_id JOIN campanias c ON c.id=vc.campania_id WHERE NOT EXISTS(SELECT 1 FROM rendicion_pagos rp JOIN rendiciones r ON r.id=rp.rendicion_id WHERE rp.pago_id=p.id AND r.estado IN ('PENDIENTE','APROBADA')) AND ".($admin>0?'c.creado_por=?':'u.id=?').' ORDER BY p.id DESC';$id=$admin>0?$admin:$user;$s=$this->db->prepare($sql);$s->bind_param('i',$id);$s->execute();return $s->get_result()->fetch_all(MYSQLI_ASSOC);}
+ function crear($ids,$fecha,$obs,$user,$admin){$ids=array_values(array_unique(array_map('intval',$ids)));if(!$ids)throw new Exception('Seleccioná al menos un pago.');$this->db->begin_transaction();try{$asignacion=0;$total=0;foreach($ids as $id){$s=$this->db->prepare('SELECT p.monto,p.vendedor_campania_id,vc.vendedor_id,c.creado_por FROM pagos p JOIN vendedores_campanias vc ON vc.id=p.vendedor_campania_id JOIN campanias c ON c.id=vc.campania_id WHERE p.id=? FOR UPDATE');$s->bind_param('i',$id);$s->execute();$p=$s->get_result()->fetch_assoc();if(!$p||($admin>0?(int)$p['creado_por']!==$admin:(int)$p['vendedor_id']!==$user)||($asignacion&&$asignacion!=(int)$p['vendedor_campania_id']))throw new Exception('Los pagos deben ser del mismo vendedor y campaña.');$s=$this->db->prepare("SELECT 1 FROM rendicion_pagos rp JOIN rendiciones r ON r.id=rp.rendicion_id WHERE rp.pago_id=? AND r.estado IN ('PENDIENTE','APROBADA') LIMIT 1");$s->bind_param('i',$id);$s->execute();if($s->get_result()->fetch_row())throw new Exception('Uno de los pagos ya está rendido o pendiente de aprobación.');$asignacion=(int)$p['vendedor_campania_id'];$total+=(float)$p['monto'];}$s=$this->db->prepare('INSERT INTO rendiciones(vendedor_campania_id,fecha_rendicion,monto_declarado,observacion) VALUES(?,?,?,?)');$s->bind_param('isds',$asignacion,$fecha,$total,$obs);$s->execute();$rid=$this->db->insert_id;foreach($ids as $id){$s=$this->db->prepare('INSERT INTO rendicion_pagos(rendicion_id,pago_id) VALUES(?,?)');$s->bind_param('ii',$rid,$id);$s->execute();}$this->db->commit();}catch(Throwable $e){$this->db->rollback();throw $e;}}
+ function cambiarEstado($id,$estado,$admin){$s=$this->db->prepare("UPDATE rendiciones r JOIN vendedores_campanias vc ON vc.id=r.vendedor_campania_id JOIN campanias c ON c.id=vc.campania_id SET r.estado=? WHERE r.id=? AND c.creado_por=? AND r.estado='PENDIENTE'");$s->bind_param('sii',$estado,$id,$admin);$s->execute();return $s->affected_rows>0;}
 }

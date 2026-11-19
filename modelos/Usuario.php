@@ -17,7 +17,8 @@ class Usuario {
         return $stmt->get_result()->fetch_assoc();
     }
 
-    public function crear($nombre, $email, $hash, $rol) {
+    public function crear($nombre, $email, $hash, $rol = 'VENDEDOR') {
+        $rol = 'VENDEDOR';
         $stmt = $this->conexion->prepare('INSERT INTO usuarios(nombre,email,contrasena_hash,rol) VALUES(?,?,?,?)');
         $stmt->bind_param('ssss', $nombre, $email, $hash, $rol);
         return $stmt->execute();

@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__.'/../modelos/Rendicion.php'; require_once __DIR__.'/../modelos/Vendedor.php';
+require_once __DIR__.'/../modelos/Rendicion.php';
 class RendicionController {
-    private $modelo;private $vendedores;
-    public function __construct($conexion){$this->modelo=new Rendicion($conexion);$this->vendedores=new Vendedor($conexion);}
-    public function inicio(){requiereSesion();$usuarioId=esAdministrador()?0:usuarioActual()['id'];$rendiciones=$this->modelo->listar($usuarioId);require __DIR__.'/../vistas/rendiciones/inicio.php';}
-    public function crear(){requiereSesion();$usuarioId=esAdministrador()?0:usuarioActual()['id'];$asignaciones=$this->vendedores->opcionesAsignacion($usuarioId,false);if($_SERVER['REQUEST_METHOD']==='POST'){if(!in_array((int)$_POST['asignacion_id'],array_column($asignaciones,'id')))exit('Asignación no permitida.');$this->modelo->crear((int)$_POST['asignacion_id'],valorPost('fecha_rendicion'),(float)$_POST['monto'],valorPost('observacion'));mensaje('Rendición enviada para revisión.');header('Location: index.php?c=rendicion&a=inicio');exit;}require __DIR__.'/../vistas/rendiciones/crear.php';}
-    public function estado(){requiereAdministrador();$estado=valorPost('estado');if(in_array($estado,['APROBADA','OBSERVADA','PENDIENTE']))$this->modelo->cambiarEstado((int)$_POST['id'],$estado);mensaje('Rendición revisada.');header('Location: index.php?c=rendicion&a=inicio');exit;}
+ private $modelo;
+ function __construct($db){$this->modelo=new Rendicion($db);}
+ function inicio(){requiereSesion();$id=(int)usuarioActual()['id'];$rendiciones=$this->modelo->listar(esAdministrador()?0:$id,esAdministrador()?$id:0);require __DIR__.'/../vistas/rendiciones/inicio.php';}
+ function crear(){requiereSesion();$id=(int)usuarioActual()['id'];$pagosDisponibles=$this->modelo->disponibles(esAdministrador()?0:$id,esAdministrador()?$id:0);if($_SERVER['REQUEST_METHOD']==='POST'){try{$this->modelo->crear($_POST['pagos']??[],valorPost('fecha_rendicion'),valorPost('observacion'),esAdministrador()?0:$id,esAdministrador()?$id:0);mensaje('Rendición vinculada a los pagos seleccionados.');header('Location: index.php?c=rendicion&a=inicio');exit;}catch(Throwable $e){$error=$e->getMessage();}}require __DIR__.'/../vistas/rendiciones/crear.php';}
+ function estado(){requiereAdministrador();requierePost();$estado=valorPost('estado');if(!in_array($estado,['APROBADA','OBSERVADA'],true)||!$this->modelo->cambiarEstado((int)($_POST['id']??0),$estado,(int)usuarioActual()['id']))mensaje('No se pudo revisar la rendición.','warning');else mensaje('Rendición revisada.');header('Location: index.php?c=rendicion&a=inicio');exit;}
 }

@@ -1,17 +1,10 @@
 <?php
-require_once __DIR__.'/../modelos/Vendedor.php'; require_once __DIR__.'/../modelos/Campania.php';
+require_once __DIR__.'/../modelos/Vendedor.php';require_once __DIR__.'/../modelos/Campania.php';require_once __DIR__.'/../modelos/Usuario.php';
 class VendedorController {
-    private $modelo; private $campanias;
-    public function __construct($conexion){$this->modelo=new Vendedor($conexion);$this->campanias=new Campania($conexion);}
-    public function inicio(){requiereAdministrador();$vendedores=$this->modelo->listar();$asignaciones=$this->modelo->asignaciones();require __DIR__.'/../vistas/vendedores/inicio.php';}
-    public function asignar(){
-        requiereAdministrador();$vendedores=$this->modelo->listar();$campanias=$this->campanias->listarTodos();
-        if($_SERVER['REQUEST_METHOD']==='POST'){
-            try{$this->modelo->asignar((int)$_POST['vendedor_id'],(int)$_POST['campania_id']);mensaje('Vendedor asignado a la campaña.');}
-            catch(mysqli_sql_exception $e){mensaje('Ese vendedor ya está asignado a la campaña.','warning');}
-            header('Location: index.php?c=vendedor&a=inicio');exit;
-        }
-        require __DIR__.'/../vistas/vendedores/asignar.php';
-    }
-    public function estado(){requiereAdministrador();$estado=valorPost('estado');if(in_array($estado,['ACTIVO','INACTIVO']))$this->modelo->cambiarEstado((int)$_POST['id'],$estado);mensaje('Asignación actualizada.');header('Location: index.php?c=vendedor&a=inicio');exit;}
+ private $modelo,$campanias,$usuarios;
+ function __construct($db){$this->modelo=new Vendedor($db);$this->campanias=new Campania($db);$this->usuarios=new Usuario($db);}
+ function inicio(){requiereAdministrador();$id=(int)usuarioActual()['id'];$vendedores=$this->modelo->listar($id);$asignaciones=$this->modelo->asignaciones($id);require __DIR__.'/../vistas/vendedores/inicio.php';}
+ function registrar(){requiereAdministrador();if($_SERVER['REQUEST_METHOD']==='POST'){$nombre=valorPost('nombre');$email=valorPost('email');$pass=valorPost('password');if(!$nombre||!filter_var($email,FILTER_VALIDATE_EMAIL)||strlen($pass)<6)$error='Completá los datos correctamente (contraseña mínima: 6 caracteres).';elseif($this->usuarios->buscarPorEmail($email))$error='El correo ya existe.';else{$this->usuarios->crear($nombre,$email,password_hash($pass,PASSWORD_DEFAULT),'VENDEDOR');mensaje('Vendedor registrado.');header('Location: index.php?c=vendedor&a=inicio');exit;}}require __DIR__.'/../vistas/vendedores/registrar.php';}
+ function asignar(){requiereAdministrador();$id=(int)usuarioActual()['id'];$vendedores=$this->modelo->listar($id);$campanias=$this->campanias->listarActivas($id);if($_SERVER['REQUEST_METHOD']==='POST'){try{$this->modelo->asignar((int)($_POST['vendedor_id']??0),(int)($_POST['campania_id']??0),$id);mensaje('Vendedor asignado.');}catch(Throwable $e){mensaje($e instanceof mysqli_sql_exception?'No se pudo asignar el vendedor.':$e->getMessage(),'danger');}header('Location: index.php?c=vendedor&a=inicio');exit;}require __DIR__.'/../vistas/vendedores/asignar.php';}
+ function estado(){requiereAdministrador();requierePost();$estado=valorPost('estado');$obs=valorPost('observaciones');if(!in_array($estado,['ACTIVO','INACTIVO','PENDIENTE'],true)||($estado!=='ACTIVO'&&$obs==='')){mensaje('Indicá un estado válido y el motivo de desactivación.','danger');}elseif(!$this->modelo->cambiarEstado((int)($_POST['id']??0),$estado,$estado==='ACTIVO'?null:$obs,(int)usuarioActual()['id'])){mensaje('No se modificó la asignación.','warning');}else mensaje('Asignación actualizada.');header('Location: index.php?c=vendedor&a=inicio');exit;}
 }

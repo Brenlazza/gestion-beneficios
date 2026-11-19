@@ -1,4 +1,9 @@
 <?php
+function csrfToken(){if(empty($_SESSION['csrf']))$_SESSION['csrf']=bin2hex(random_bytes(32));return $_SESSION['csrf'];}
+function verificarCsrf(){if(!hash_equals(csrfToken(),(string)($_POST['_csrf']??''))){http_response_code(403);exit('Solicitud inválida. Volvé a cargar la página.');}}
+function requierePost(){if($_SERVER['REQUEST_METHOD']!=='POST'){http_response_code(405);exit('Método no permitido.');}}
+function denegar(){http_response_code(403);exit('No tenés permiso para esta operación.');}
+
 function usuarioActual() {
     return isset($_SESSION['usuario']) ? $_SESSION['usuario'] : null;
 }

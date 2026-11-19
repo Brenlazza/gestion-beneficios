@@ -26,13 +26,6 @@ require __DIR__.'/../navbar.php';
                             <input class="form-control" id="password" type="password" name="password" minlength="6" required>
                             <div class="form-text">Debe tener al menos 6 caracteres.</div>
                         </div>
-                        <div class="mb-4">
-                            <label class="form-label" for="rol">Tipo de usuario</label>
-                            <select class="form-select" id="rol" name="rol" required>
-                                <option value="VENDEDOR">Vendedor</option>
-                                <option value="ADMINISTRADOR">Administrador</option>
-                            </select>
-                        </div>
                         <button class="btn btn-primary w-100" type="submit">Registrarse</button>
                     </form>
                     <p class="text-center mt-4 mb-0">¿Ya tenés cuenta? <a href="index.php?c=usuario&a=login">Ingresá</a></p>

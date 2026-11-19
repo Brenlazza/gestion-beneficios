@@ -1,24 +1,8 @@
 <?php
 class Pago {
-    private $conexion;
-    public function __construct($conexion) { $this->conexion = $conexion; }
-
-    public function listar($usuarioId = 0) {
-        $sql = "SELECT p.*,u.nombre vendedor,c.nombre campania FROM pagos p
-                INNER JOIN vendedores_campanias vc ON vc.id=p.vendedor_campania_id
-                INNER JOIN usuarios u ON u.id=vc.vendedor_id
-                INNER JOIN campanias c ON c.id=vc.campania_id";
-        if ($usuarioId > 0) {
-            $stmt = $this->conexion->prepare($sql . ' WHERE u.id=? ORDER BY p.id DESC');
-            $stmt->bind_param('i', $usuarioId); $stmt->execute();
-            return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        }
-        return $this->conexion->query($sql . ' ORDER BY p.id DESC')->fetch_all(MYSQLI_ASSOC);
-    }
-
-    public function crear($asignacion, $fecha, $monto, $medio, $observacion) {
-        $stmt = $this->conexion->prepare('INSERT INTO pagos(vendedor_campania_id,fecha_pago,monto,medio_pago,observacion) VALUES(?,?,?,?,?)');
-        $stmt->bind_param('isdss', $asignacion, $fecha, $monto, $medio, $observacion);
-        return $stmt->execute();
-    }
+ private $db;
+ function __construct($db){$this->db=$db;}
+ function listar($user,$admin){$sql='SELECT p.*,v.cliente,v.id venta_id,u.nombre vendedor,c.nombre campania FROM pagos p LEFT JOIN ventas v ON v.id=p.venta_id JOIN vendedores_campanias vc ON vc.id=p.vendedor_campania_id JOIN usuarios u ON u.id=vc.vendedor_id JOIN campanias c ON c.id=vc.campania_id WHERE '.($admin>0?'c.creado_por=?':'u.id=?').' ORDER BY p.id DESC';$id=$admin>0?$admin:$user;$s=$this->db->prepare($sql);$s->bind_param('i',$id);$s->execute();return $s->get_result()->fetch_all(MYSQLI_ASSOC);}
+ function ventasPendientes($user,$admin){$sql="SELECT v.id,v.cliente,c.nombre campania,u.nombre vendedor,v.total-COALESCE((SELECT SUM(p.monto) FROM pagos p WHERE p.venta_id=v.id),0) pendiente FROM ventas v JOIN vendedores_campanias vc ON vc.id=v.vendedor_campania_id JOIN campanias c ON c.id=vc.campania_id JOIN usuarios u ON u.id=vc.vendedor_id WHERE ".($admin>0?'c.creado_por=?':'u.id=?')." HAVING pendiente>0 ORDER BY v.id DESC";$id=$admin>0?$admin:$user;$s=$this->db->prepare($sql);$s->bind_param('i',$id);$s->execute();return $s->get_result()->fetch_all(MYSQLI_ASSOC);}
+ function crear($venta,$fecha,$monto,$medio,$obs,$user,$admin){if($monto<=0||!in_array($medio,['EFECTIVO','TRANSFERENCIA','OTRO'],true))throw new Exception('Monto o medio de pago inválido.');$this->db->begin_transaction();try{$s=$this->db->prepare('SELECT v.total,v.vendedor_campania_id,u.id vendedor_id,c.creado_por FROM ventas v JOIN vendedores_campanias vc ON vc.id=v.vendedor_campania_id JOIN campanias c ON c.id=vc.campania_id JOIN usuarios u ON u.id=vc.vendedor_id WHERE v.id=? FOR UPDATE');$s->bind_param('i',$venta);$s->execute();$row=$s->get_result()->fetch_assoc();if(!$row||($admin>0?(int)$row['creado_por']!==$admin:(int)$row['vendedor_id']!==$user))throw new Exception('Venta no permitida.');$s=$this->db->prepare('SELECT COALESCE(SUM(monto),0) pagado FROM pagos WHERE venta_id=?');$s->bind_param('i',$venta);$s->execute();$pagado=(float)$s->get_result()->fetch_assoc()['pagado'];if(round($pagado+$monto,2)>round((float)$row['total'],2))throw new Exception('El pago supera el saldo pendiente de la venta.');$s=$this->db->prepare('INSERT INTO pagos(venta_id,vendedor_campania_id,fecha_pago,monto,medio_pago,observacion) VALUES(?,?,?,?,?,?)');$s->bind_param('iisdss',$venta,$row['vendedor_campania_id'],$fecha,$monto,$medio,$obs);$s->execute();$this->db->commit();}catch(Throwable $e){$this->db->rollback();throw $e;}}
 }

@@ -10,6 +10,7 @@ class UsuarioController {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $usuario = $this->modelo->buscarPorEmail(valorPost('email'));
             if ($usuario && $usuario['activo'] && password_verify($_POST['password'], $usuario['contrasena_hash'])) {
+                session_regenerate_id(true);
                 unset($usuario['contrasena_hash']);
                 $_SESSION['usuario'] = $usuario;
                 header('Location: index.php?c=home&a=panel'); exit;
@@ -23,7 +24,7 @@ class UsuarioController {
         if (usuarioActual()) { header('Location: index.php?c=home&a=panel'); exit; }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nombre = valorPost('nombre'); $email = valorPost('email'); $clave = valorPost('password');
-            $rol = valorPost('rol') === 'ADMINISTRADOR' ? 'ADMINISTRADOR' : 'VENDEDOR';
+            $rol = 'VENDEDOR';
             if ($nombre === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($clave) < 6) {
                 $error = 'Completá correctamente todos los campos.';
             } elseif ($this->modelo->buscarPorEmail($email)) {

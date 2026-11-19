@@ -1,8 +1,8 @@
 <?php
-require_once __DIR__.'/../modelos/Pago.php'; require_once __DIR__.'/../modelos/Vendedor.php';
+require_once __DIR__.'/../modelos/Pago.php';
 class PagoController {
-    private $modelo;private $vendedores;
-    public function __construct($conexion){$this->modelo=new Pago($conexion);$this->vendedores=new Vendedor($conexion);}
-    public function inicio(){requiereSesion();$usuarioId=esAdministrador()?0:usuarioActual()['id'];$pagos=$this->modelo->listar($usuarioId);require __DIR__.'/../vistas/pagos/inicio.php';}
-    public function crear(){requiereSesion();$usuarioId=esAdministrador()?0:usuarioActual()['id'];$asignaciones=$this->vendedores->opcionesAsignacion($usuarioId,false);if($_SERVER['REQUEST_METHOD']==='POST'){if(!in_array((int)$_POST['asignacion_id'],array_column($asignaciones,'id')))exit('Asignación no permitida.');$this->modelo->crear((int)$_POST['asignacion_id'],valorPost('fecha_pago'),(float)$_POST['monto'],valorPost('medio_pago'),valorPost('observacion'));mensaje('Pago registrado.');header('Location: index.php?c=pago&a=inicio');exit;}require __DIR__.'/../vistas/pagos/crear.php';}
+ private $modelo;
+ function __construct($db){$this->modelo=new Pago($db);}
+ function inicio(){requiereSesion();$pagos=$this->modelo->listar(esAdministrador()?0:(int)usuarioActual()['id'],esAdministrador()?(int)usuarioActual()['id']:0);require __DIR__.'/../vistas/pagos/inicio.php';}
+ function crear(){requiereSesion();$id=(int)usuarioActual()['id'];$ventas=$this->modelo->ventasPendientes(esAdministrador()?0:$id,esAdministrador()?$id:0);if($_SERVER['REQUEST_METHOD']==='POST'){try{$this->modelo->crear((int)($_POST['venta_id']??0),valorPost('fecha_pago'),(float)($_POST['monto']??0),valorPost('medio_pago'),valorPost('observacion'),esAdministrador()?0:$id,esAdministrador()?$id:0);mensaje('Pago vinculado a la venta.');header('Location: index.php?c=pago&a=inicio');exit;}catch(Throwable $e){$error=$e->getMessage();}}require __DIR__.'/../vistas/pagos/crear.php';}
 }

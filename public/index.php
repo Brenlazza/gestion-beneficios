@@ -9,6 +9,7 @@ foreach ($controladores as $nombre) {
 }
 
 $conexion = (new Conexion())->conectar();
+if ($_SERVER['REQUEST_METHOD']==='POST') verificarCsrf();
 $c = isset($_GET['c']) ? $_GET['c'] : 'home';
 $a = isset($_GET['a']) ? $_GET['a'] : 'inicio';
 
@@ -17,7 +18,7 @@ $rutas = [
     'usuario' => ['UsuarioController', ['login','registro','perfil','salir']],
     'campania' => ['CampaniaController', ['inicio','crear','editar','estado']],
     'producto' => ['ProductoController', ['inicio','crear','editar','ajustar']],
-    'vendedor' => ['VendedorController', ['inicio','asignar','estado']],
+    'vendedor' => ['VendedorController', ['inicio','registrar','asignar','estado']],
     'venta' => ['VentaController', ['inicio','crear','entregar']],
     'pago' => ['PagoController', ['inicio','crear']],
     'rendicion' => ['RendicionController', ['inicio','crear','estado']],
@@ -31,4 +32,6 @@ if (!isset($rutas[$c]) || !in_array($a, $rutas[$c][1])) {
 
 $clase = $rutas[$c][0];
 $controlador = new $clase($conexion);
+ob_start(function($html){return preg_replace_callback('/<form\b[^>]*method=[\"\']post[\"\'][^>]*>/i',function($m){return $m[0].'<input type="hidden" name="_csrf" value="'.e(csrfToken()).'">';},$html);});
 $controlador->$a();
+ob_end_flush();

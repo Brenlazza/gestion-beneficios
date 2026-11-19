@@ -1,37 +1,11 @@
 <?php
 class Campania {
-    private $conexion;
-    public function __construct($conexion) { $this->conexion = $conexion; }
-
-    public function listarTodos() {
-        return $this->conexion->query('SELECT * FROM campanias ORDER BY id DESC')->fetch_all(MYSQLI_ASSOC);
-    }
-
-    public function listarActivas() {
-        return $this->conexion->query("SELECT * FROM campanias WHERE estado='ACTIVA' ORDER BY nombre")->fetch_all(MYSQLI_ASSOC);
-    }
-
-    public function buscar($id) {
-        $stmt = $this->conexion->prepare('SELECT * FROM campanias WHERE id=?');
-        $stmt->bind_param('i', $id); $stmt->execute();
-        return $stmt->get_result()->fetch_assoc();
-    }
-
-    public function crear($nombre, $descripcion, $inicio, $fin, $usuario) {
-        $stmt = $this->conexion->prepare('INSERT INTO campanias(nombre,descripcion,fecha_inicio,fecha_fin,creado_por) VALUES(?,?,?,?,?)');
-        $stmt->bind_param('ssssi', $nombre, $descripcion, $inicio, $fin, $usuario);
-        return $stmt->execute();
-    }
-
-    public function editar($id, $nombre, $descripcion, $inicio, $fin) {
-        $stmt = $this->conexion->prepare('UPDATE campanias SET nombre=?,descripcion=?,fecha_inicio=?,fecha_fin=? WHERE id=?');
-        $stmt->bind_param('ssssi', $nombre, $descripcion, $inicio, $fin, $id);
-        return $stmt->execute();
-    }
-
-    public function cambiarEstado($id, $estado) {
-        $stmt = $this->conexion->prepare('UPDATE campanias SET estado=? WHERE id=?');
-        $stmt->bind_param('si', $estado, $id);
-        return $stmt->execute();
-    }
+ private $db;
+ function __construct($db){$this->db=$db;}
+ function listarTodos($admin){$s=$this->db->prepare('SELECT * FROM campanias WHERE creado_por=? ORDER BY id DESC');$s->bind_param('i',$admin);$s->execute();return $s->get_result()->fetch_all(MYSQLI_ASSOC);}
+ function listarActivas($admin){$s=$this->db->prepare("SELECT * FROM campanias WHERE creado_por=? AND estado='ACTIVA' ORDER BY nombre");$s->bind_param('i',$admin);$s->execute();return $s->get_result()->fetch_all(MYSQLI_ASSOC);}
+ function buscar($id,$admin){$s=$this->db->prepare('SELECT * FROM campanias WHERE id=? AND creado_por=?');$s->bind_param('ii',$id,$admin);$s->execute();return $s->get_result()->fetch_assoc();}
+ function crear($nombre,$desc,$inicio,$fin,$admin){$s=$this->db->prepare('INSERT INTO campanias(nombre,descripcion,fecha_inicio,fecha_fin,creado_por) VALUES(?,?,?,?,?)');$s->bind_param('ssssi',$nombre,$desc,$inicio,$fin,$admin);return $s->execute();}
+ function editar($id,$nombre,$desc,$inicio,$fin,$admin){$s=$this->db->prepare('UPDATE campanias SET nombre=?,descripcion=?,fecha_inicio=?,fecha_fin=? WHERE id=? AND creado_por=?');$s->bind_param('ssssii',$nombre,$desc,$inicio,$fin,$id,$admin);return $s->execute();}
+ function cambiarEstado($id,$estado,$admin){$s=$this->db->prepare('UPDATE campanias SET estado=? WHERE id=? AND creado_por=?');$s->bind_param('sii',$estado,$id,$admin);return $s->execute();}
 }

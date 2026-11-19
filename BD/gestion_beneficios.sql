@@ -47,6 +47,7 @@ CREATE TABLE vendedores_campanias (
     vendedor_id INT NOT NULL,
     campania_id INT NOT NULL,
     estado ENUM('PENDIENTE','ACTIVO','INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    observaciones VARCHAR(255) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY vendedor_campania_unico (vendedor_id,campania_id),
     FOREIGN KEY (vendedor_id) REFERENCES usuarios(id),
@@ -79,13 +80,15 @@ CREATE TABLE detalle_ventas (
 
 CREATE TABLE pagos (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    venta_id INT NOT NULL,
     vendedor_campania_id INT NOT NULL,
     fecha_pago DATE NOT NULL,
     monto DECIMAL(12,2) NOT NULL,
     medio_pago ENUM('EFECTIVO','TRANSFERENCIA','OTRO') NOT NULL,
     observacion VARCHAR(255) NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (vendedor_campania_id) REFERENCES vendedores_campanias(id)
+    FOREIGN KEY (vendedor_campania_id) REFERENCES vendedores_campanias(id),
+    FOREIGN KEY (venta_id) REFERENCES ventas(id)
 );
 
 CREATE TABLE rendiciones (
@@ -97,4 +100,11 @@ CREATE TABLE rendiciones (
     estado ENUM('PENDIENTE','APROBADA','OBSERVADA') NOT NULL DEFAULT 'PENDIENTE',
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (vendedor_campania_id) REFERENCES vendedores_campanias(id)
+);
+
+CREATE TABLE rendicion_pagos (
+ rendicion_id INT NOT NULL, pago_id INT NOT NULL,
+ PRIMARY KEY(rendicion_id,pago_id),
+ FOREIGN KEY(rendicion_id) REFERENCES rendiciones(id),
+ FOREIGN KEY(pago_id) REFERENCES pagos(id)
 );
